@@ -1,0 +1,43 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: fleet-demo
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: nginx
+  namespace: fleet-demo
+spec:
+  subscriptions:
+  - image:
+      repoURL: nginx
+      semverConstraint: ">=1.0.0"
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: production-fleet
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: nginx
+    sources:
+      direct: true
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: fleet-rollout
+        config:
+          placements:
+          - name: demo-placement
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickAll

@@ -1,0 +1,58 @@
+# Default values for hub-agent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kubefleet-dev/kubefleet/hub-agent
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+logVerbosity: 5
+
+enableWebhook: true
+webhookServiceName: fleetwebhook
+enableGuardRail: true
+webhookClientConnectionType: service
+enableWorkload: false
+# useCertManager enables cert-manager for webhook certificate management
+# When enabled, cert-manager must be installed as a prerequisite (it is not installed automatically by this chart)
+# and a Certificate resource will be created
+useCertManager: false
+# webhookCertSecretName is ONLY used when useCertManager=true
+# It specifies the name of the Secret where cert-manager stores the certificate
+# webhookCertSecretName: fleet-webhook-server-cert
+
+forceDeleteWaitTime: 15m0s
+clusterUnhealthyThreshold: 3m0s
+resourceSnapshotCreationMinimumInterval: 30s
+resourceChangesCollectionDuration: 15s
+
+namespace: fleet-system
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+tolerations: []
+
+affinity: {}
+
+enableClusterInventoryAPI: true
+enableStagedUpdateRunAPIs: true
+enableEvictionAPIs: true
+
+enablePprof: true
+pprofPort: 6065
+
+hubAPIQPS: 250
+hubAPIBurst: 1000
+MaxConcurrentClusterPlacement: 100
+ConcurrentResourceChangeSyncs: 20
+MaxFleetSizeSupported: 100

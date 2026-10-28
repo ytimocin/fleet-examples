@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kargo-controller-kubefleet
+rules:
+- apiGroups: ["placement.kubernetes-fleet.io"]
+  resources: ["clusterresourceplacements"]
+  verbs: ["create","get","list","patch","update","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kargo-controller-kubefleet
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kargo-controller-kubefleet
+subjects:
+- kind: ServiceAccount
+  namespace: kargo
+  name: kargo-controller

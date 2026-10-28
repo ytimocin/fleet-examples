@@ -1,0 +1,23 @@
+# Nested upstream clones (not part of this repo — use published images)
+/kargo/
+/kubefleet/
+
+# Large generated doc dumps
+/kubefleet-docs-complete.md
+/docs/kargo-docs-complete.md
+
+# Go workspace (references nested clones; not useful outside local dev)
+/go.work
+/go.work.sum
+
+# Claude Code project state
+/.claude/
+
+# Kubeconfigs and credential scratch files
+/tmp/
+*.kubeconfig
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,100 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: canary
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: nginx
+    sources:
+      direct: true
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: canary-rollout
+        config:
+          placements:
+          - name: demo-canary
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickN
+              numberOfClusters: 1
+              affinity:
+                clusterAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    clusterSelectorTerms:
+                    - labelSelector:
+                        matchLabels:
+                          tier: canary
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: us-west
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: nginx
+    sources:
+      stages:
+      - canary
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: us-west-rollout
+        config:
+          placements:
+          - name: demo-us-west
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickAll
+              affinity:
+                clusterAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    clusterSelectorTerms:
+                    - labelSelector:
+                        matchLabels:
+                          region: us-west
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: global
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: nginx
+    sources:
+      stages:
+      - us-west
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: global-rollout
+        config:
+          placements:
+          - name: demo-global
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickAll

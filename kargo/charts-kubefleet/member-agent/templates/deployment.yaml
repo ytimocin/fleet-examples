@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "member-agent.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "member-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "member-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "member-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Always
+      serviceAccountName: {{ include "member-agent.fullname" . }}-sa
+      containers:
+        - name: {{ include "member-agent.fullname" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+          args:
+            - --leader-elect=true
+            {{- if .Values.useCAAuth }}
+            - --use-ca-auth={{ .Values.useCAAuth }}
+            {{- else }}
+            - --tls-insecure={{ .Values.tlsClientInsecure }}
+            {{- end }}
+            - --v={{ .Values.logVerbosity }}
+            - -add_dir_header
+            - --enable-pprof={{ .Values.enablePprof }}
+            - --pprof-port={{ .Values.pprofPort }}
+            - --hub-pprof-port={{ .Values.hubPprofPort }}
+            {{- if .Values.workApplierRequeueRateLimiterAttemptsWithFixedDelay }}
+            - --work-applier-requeue-rate-limiter-attempts-with-fixed-delay={{ .Values.workApplierRequeueRateLimiterAttemptsWithFixedDelay }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterFixedDelaySeconds }}
+            - --work-applier-requeue-rate-limiter-fixed-delay-seconds={{ .Values.workApplierRequeueRateLimiterFixedDelaySeconds }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterExponentialBaseForSlowBackoff }}
+            - --work-applier-requeue-rate-limiter-exponential-base-for-slow-backoff={{ .Values.workApplierRequeueRateLimiterExponentialBaseForSlowBackoff }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterInitialSlowBackoffDelaySeconds }}
+            - --work-applier-requeue-rate-limiter-initial-slow-backoff-delay-seconds={{ .Values.workApplierRequeueRateLimiterInitialSlowBackoffDelaySeconds }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterMaxSlowBackoffDelaySeconds }}
+            - --work-applier-requeue-rate-limiter-max-slow-backoff-delay-seconds={{ .Values.workApplierRequeueRateLimiterMaxSlowBackoffDelaySeconds }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterExponentialBaseForFastBackoff }}
+            - --work-applier-requeue-rate-limiter-exponential-base-for-fast-backoff={{ .Values.workApplierRequeueRateLimiterExponentialBaseForFastBackoff }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterMaxFastBackoffDelaySeconds }}
+            - --work-applier-requeue-rate-limiter-max-fast-backoff-delay-seconds={{ .Values.workApplierRequeueRateLimiterMaxFastBackoffDelaySeconds }}
+            {{- end }}
+            {{- if .Values.workApplierRequeueRateLimiterSkipToFastBackoffForAvailableOrDiffReportedWorkObjs }}
+            - --work-applier-requeue-rate-limiter-skip-to-fast-backoff-for-available-or-diff-reported-work-objs={{ .Values.workApplierRequeueRateLimiterSkipToFastBackoffForAvailableOrDiffReportedWorkObjs }}
+            {{- end }}
+            {{- if .Values.propertyProvider }}
+            - --property-provider={{ .Values.propertyProvider }}
+            {{- end }}
+            {{- if eq .Values.propertyProvider "azure" }}
+            - --cloud-config=/etc/kubernetes/provider/config.json
+            {{- end }}
+            {{- if .Values.region }}
+            - --region={{ .Values.region }}
+            {{- end }}
+            {{- if .Values.priorityQueue.enabled }}
+            - --enable-work-applier-priority-queue=true
+            - --work-applier-priority-linear-equation-coeff-a={{ .Values.priorityQueue.priorityLinearEquationCoeffA }}
+            - --work-applier-priority-linear-equation-coeff-b={{ .Values.priorityQueue.priorityLinearEquationCoeffB }}
+            {{- end }}
+            {{- if .Values.enableNamespaceCollectionInPropertyProvider }}
+            - --enable-namespace-collection-in-property-provider={{ .Values.enableNamespaceCollectionInPropertyProvider }}
+            {{- end }}
+          env:
+          - name: HUB_SERVER_URL
+            value: "{{ .Values.config.hubURL }}"
+          - name: CONFIG_PATH
+            value: "/config/token"
+          - name: MEMBER_CLUSTER_NAME
+            value: "{{ .Values.config.memberClusterName }}"
+          - name: HUB_CERTIFICATE_AUTHORITY
+            value: "{{ .Values.config.hubCA }}"
+          {{- if .Values.useCAAuth }}
+          - name: IDENTITY_KEY
+            value:  "{{ .Values.config.identityKey }}"
+          - name: IDENTITY_CERT
+            value:  "{{ .Values.config.identityCert }}"
+          - name: CA_BUNDLE
+            value:  "{{ .Values.config.CABundle }}"
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - containerPort: 8080
+              name: hubmetrics
+              protocol: TCP
+            - containerPort: 8081
+              name: hubhealthz
+              protocol: TCP
+            - containerPort: 8090
+              name: membermetrics
+              protocol: TCP
+            - containerPort: 8091
+              name: memberhealthz
+              protocol: TCP
+            {{- if .Values.enablePprof }}
+            - containerPort: {{ .Values.pprofPort }}
+              name: memberpprof
+              protocol: TCP
+            - containerPort: {{ .Values.hubPprofPort }}
+              name: hubpprof
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: hubhealthz
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: hubhealthz
+        {{- if or (not .Values.useCAAuth) (eq .Values.propertyProvider "azure") }}
+          volumeMounts:
+          {{- if not .Values.useCAAuth }}
+          - name: provider-token 
+            mountPath: /config
+          {{- end }}
+          {{- if eq .Values.propertyProvider "azure" }}
+          - name: cloud-provider-config
+            mountPath: /etc/kubernetes/provider
+            readOnly: true
+          {{- end }}
+        {{- end }}
+        {{- if not .Values.useCAAuth }}
+        - name: refresh-token
+          image: "{{ .Values.refreshtoken.repository }}:{{ .Values.refreshtoken.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.refreshtoken.pullPolicy }}
+          args:
+            {{- $provider := .Values.config.provider }}
+            - {{ $provider }}
+            {{- range $key, $value := (index .Values $provider) }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            - --v={{ .Values.logVerbosity }}
+          ports:
+            - name: http
+              containerPort: 4000
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - name: provider-token
+            mountPath: /config
+        {{- end }}
+      {{- if or (not .Values.useCAAuth) (eq .Values.propertyProvider "azure") }}
+      volumes:
+      {{- if not .Values.useCAAuth }}
+      - name: provider-token
+        emptyDir: {}
+      {{- end }}
+      {{- if eq .Values.propertyProvider "azure" }}
+      - name: cloud-provider-config
+        secret:
+          secretName: cloud-config
+      {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

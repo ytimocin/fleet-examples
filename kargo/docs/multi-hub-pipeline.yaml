@@ -1,0 +1,78 @@
+# Auto-generated cross-fleet pipeline.
+# Usage: kubectl --context kind-hub-1 apply -f docs/multi-hub-pipeline.yaml
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: fleet-demo
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: app-images
+  namespace: fleet-demo
+spec:
+  subscriptions:
+  - image:
+      repoURL: nginx
+      semverConstraint: ">=1.0.0"
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: hub-1-fleet
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: app-images
+    sources:
+      direct: true
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: hub-1-fleet-rollout
+        config:
+          placements:
+          - name: demo-hub-1-fleet
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickN
+              numberOfClusters: 1
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: hub-2-fleet
+  namespace: fleet-demo
+spec:
+  requestedFreight:
+  - origin:
+      kind: Warehouse
+      name: app-images
+    sources:
+      stages:
+      - hub-1-fleet
+  promotionTemplate:
+    spec:
+      steps:
+      - uses: kubefleet-update
+        as: hub-2-fleet-rollout
+        config:
+          hub:
+            secretName: fleet-hub-2
+          placements:
+          - name: demo-hub-2-fleet
+            resourceSelectors:
+            - group: ""
+              version: v1
+              kind: Namespace
+              name: demo
+            policy:
+              placementType: PickAll
