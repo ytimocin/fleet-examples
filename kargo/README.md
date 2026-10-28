@@ -14,6 +14,18 @@ promotion step and a `kubefleet` health checker:
 Docker, `kind`, `kubectl`, `helm`, `htpasswd` (macOS built-in; `apache2-utils` on Debian).
 Six Kind clusters need roughly 4 GB of free RAM.
 
+**Apple Silicon:** the KubeFleet v0.3.2 images are amd64-only and Kind will not run them under
+emulation. Build arm64 copies under the same name first; the setup script uses local images when
+present.
+
+```bash
+git clone --depth 1 --branch v0.3.2 https://github.com/kubefleet-dev/kubefleet /tmp/kubefleet
+for img in hub-agent member-agent refresh-token; do
+  docker buildx build -f /tmp/kubefleet/docker/$img.Dockerfile --platform linux/arm64 \
+    --build-arg GOARCH=arm64 -t ghcr.io/kubefleet-dev/kubefleet/$img:v0.3.2 --load /tmp/kubefleet
+done
+```
+
 ## Run
 
 ```bash
@@ -69,5 +81,5 @@ fleets (12 Kind clusters, ~8 GB RAM). Teardown with the same numbers:
 | cert-manager | v1.21.3 | `CERT_MANAGER_VERSION` |
 | Kind node | v1.33.4 | `KIND_IMAGE` |
 
-The vendored KubeFleet charts match the v0.3.x release charts. Bumping the image tag past that
-line means re-vendoring `charts/` from the KubeFleet tag you target.
+`charts-kubefleet/` is copied from the KubeFleet v0.3.2 tag (`charts/`, symlinks resolved).
+Bumping the image tag means re-vendoring from the tag you target.

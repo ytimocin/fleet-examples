@@ -38,9 +38,11 @@ error() { echo "ERROR: $*" >&2; exit 1; }
 # Image builds
 # ---------------------------------------------------------------------------
 pull_kubefleet_images() {
+    # Skip the pull when the image is already local (e.g. built for arm64, see README).
     info "Pulling KubeFleet images (tag: ${TAG})..."
     for img in "${HUB_AGENT_IMAGE}" "${MEMBER_AGENT_IMAGE}" "${REFRESH_TOKEN_IMAGE}"; do
-        docker pull "${REGISTRY}/${img}:${TAG}" 2>&1 | tail -1
+        docker image inspect "${REGISTRY}/${img}:${TAG}" >/dev/null 2>&1 \
+            || docker pull "${REGISTRY}/${img}:${TAG}" 2>&1 | tail -1
     done
 }
 
@@ -96,10 +98,14 @@ install_cert_manager() {
 install_hub_agent() {
     local context=$1
     info "Installing hub-agent on ${context}..."
+    # logFileMaxSize has no chart default and an empty flag crashes the agent (kubefleet #584).
     helm install hub-agent "${ROOT_DIR}/charts-kubefleet/hub-agent/" \
         --kube-context "${context}" \
+        --namespace fleet-system --create-namespace \
+        --set-string logFileMaxSize=1000000 \
         --set image.repository="${REGISTRY}/${HUB_AGENT_IMAGE}" \
         --set image.tag="${TAG}" \
+        --set image.pullPolicy=IfNotPresent \
         --set namespace=fleet-system \
         --set logVerbosity=5 \
         --set replicaCount=1 \
@@ -123,10 +129,10 @@ setup_member_on_hub() {
 
     # Create ServiceAccount on hub
     kubectl --context "${hub_context}" create sa \
-        "fleet-member-agent-${member_name}" -n fleet-system 2>/dev/null || true
+        "fleet-member-agent-${member_name}" -n fleet-system >/dev/null 2>&1 || true
 
-    # Create token Secret on hub
-    kubectl --context "${hub_context}" apply -f - <<EOF
+    # Create token Secret on hub (stdout is the token: keep kubectl quiet)
+    kubectl --context "${hub_context}" apply -f - >/dev/null <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -157,10 +163,8 @@ create_hub_kubeconfig_secret_on_member() {
     local token=$2
 
     kubectl --context "${member_context}" create secret generic hub-kubeconfig-secret \
-        --from-literal=token="${token}" 2>/dev/null || \
-    kubectl --context "${member_context}" delete secret hub-kubeconfig-secret 2>/dev/null && \
-    kubectl --context "${member_context}" create secret generic hub-kubeconfig-secret \
-        --from-literal=token="${token}"
+        --from-literal=token="${token}" --dry-run=client -o yaml \
+        | kubectl --context "${member_context}" apply -f -
 }
 
 install_member_agent() {
@@ -169,14 +173,19 @@ install_member_agent() {
     local member_cluster_name=$3
 
     info "Installing member-agent on ${member_context}..."
+    # Kind's hub CA is not passed to the member, so skip TLS verification (test-only).
     helm install member-agent "${ROOT_DIR}/charts-kubefleet/member-agent/" \
         --kube-context "${member_context}" \
+        --namespace fleet-system --create-namespace \
+        --set tlsClientInsecure=true \
         --set config.hubURL="${hub_url}" \
         --set config.memberClusterName="${member_cluster_name}" \
         --set image.repository="${REGISTRY}/${MEMBER_AGENT_IMAGE}" \
         --set image.tag="${TAG}" \
         --set refreshtoken.repository="${REGISTRY}/${REFRESH_TOKEN_IMAGE}" \
         --set refreshtoken.tag="${TAG}" \
+        --set image.pullPolicy=IfNotPresent \
+        --set refreshtoken.pullPolicy=IfNotPresent \
         --set namespace=fleet-system \
         --set logVerbosity=5 \
         --set workApplierRequeueRateLimiterMaxSlowBackoffDelaySeconds=30 \
@@ -363,9 +372,6 @@ main() {
             "${REGISTRY}/${REFRESH_TOKEN_IMAGE}:${TAG}"
         install_cert_manager "${hub_context}"
         install_hub_agent "${hub_context}"
-
-        # Ensure fleet-system namespace exists on hub
-        kubectl --context "${hub_context}" create namespace fleet-system 2>/dev/null || true
 
         # The workload the pipeline places: the CRPs select the "demo" namespace.
         kubectl --context "${hub_context}" create namespace demo 2>/dev/null || true
