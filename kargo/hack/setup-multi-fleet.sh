@@ -16,13 +16,13 @@ MEMBERS_PER_HUB=${2:-2}
 # Image configuration — upstream KubeFleet published images
 REGISTRY="${REGISTRY:-ghcr.io}"
 KUBEFLEET_NS="${KUBEFLEET_NS:-kubefleet-dev/kubefleet}"
-KUBEFLEET_TAG="${KUBEFLEET_TAG:-v0.2.2}"
+KUBEFLEET_TAG="${KUBEFLEET_TAG:-v0.3.2}"
 HUB_AGENT_IMAGE="${HUB_AGENT_IMAGE:-${KUBEFLEET_NS}/hub-agent}"
 MEMBER_AGENT_IMAGE="${MEMBER_AGENT_IMAGE:-${KUBEFLEET_NS}/member-agent}"
 REFRESH_TOKEN_IMAGE="${REFRESH_TOKEN_IMAGE:-${KUBEFLEET_NS}/refresh-token}"
 TAG="${TAG:-${KUBEFLEET_TAG}}"
 KIND_IMAGE="${KIND_IMAGE:-kindest/node:v1.33.4}"
-CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.16.2}"
+CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.21.3}"
 
 # Kargo configuration
 KARGO_PROJECT="fleet-demo"
@@ -366,6 +366,10 @@ main() {
 
         # Ensure fleet-system namespace exists on hub
         kubectl --context "${hub_context}" create namespace fleet-system 2>/dev/null || true
+
+        # The workload the pipeline places: the CRPs select the "demo" namespace.
+        kubectl --context "${hub_context}" create namespace demo 2>/dev/null || true
+        kubectl --context "${hub_context}" create deployment nginx --image=nginx -n demo 2>/dev/null || true
 
         local hub_url
         hub_url=$(get_hub_url "${hub_name}")

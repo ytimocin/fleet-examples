@@ -1,60 +1,73 @@
-# Kargo + KubeFleet Cross-Fleet Playground
+# Kargo + KubeFleet: promote across independent fleets
 
-Demo: **Kargo orchestrating promotions across multiple independent KubeFleet fleets.**
+Demo: **Kargo orchestrating promotions across multiple KubeFleet fleets.**
 
-One Kargo instance sits above N KubeFleet hubs and sequences rollouts (e.g. canary on fleet A, then fleet B, then fleet C), gating each stage on fleet-wide health.
+One Kargo instance sits above N KubeFleet hubs and sequences rollouts (canary on fleet A, then
+fleet B, then fleet C), gating each stage on fleet-wide health. Everything runs locally in Kind.
+
+Kargo has no KubeFleet step upstream. This demo runs a fork that adds a `kubefleet-update`
+promotion step and a `kubefleet` health checker:
+[ytimocin/kargo#1](https://github.com/ytimocin/kargo/pull/1), image `ghcr.io/ytimocin/kargo:cross-fleet`.
 
 ## Prerequisites
 
-- Docker
-- `kubectl`, `helm`, `kind`
-- `htpasswd` (from `apache2-utils` or macOS built-in)
+Docker, `kind`, `kubectl`, `helm`, `htpasswd` (macOS built-in; `apache2-utils` on Debian).
+Six Kind clusters need roughly 4 GB of free RAM.
 
-## Quick start
+## Run
 
 ```bash
-# 2 hubs, 2 member clusters each (6 Kind clusters total)
-./hack/setup-multi-fleet.sh 2 2
-
-# Generate pipeline YAML that chains stages across those hubs
-./hack/generate-cross-fleet-pipeline.sh 2
-
-# Apply it
+./hack/setup-multi-fleet.sh 2 2                 # 2 hubs x 2 members, Kargo on hub-1  (~10 min)
+./hack/generate-cross-fleet-pipeline.sh 2       # writes docs/multi-hub-pipeline.yaml
 kubectl --context kind-hub-1 apply -f docs/multi-hub-pipeline.yaml
 
-# Open Kargo UI
 kubectl --context kind-hub-1 -n kargo port-forward svc/kargo-api 31081:443 &
-# Browse: https://localhost:31081  (admin / admin)
+open https://localhost:31081                    # admin / admin
 ```
 
-## What you'll see
-
-1. Warehouse detects new nginx image → creates Freight.
-2. Promote to `hub-1-fleet` → CRP created on hub-1 (canary, 1 cluster).
-3. Kargo waits until hub-1 is healthy.
-4. Promote to `hub-2-fleet` → CRP created on hub-2 (remote fleet via credential Secret).
-5. All stages green — cross-fleet rollout complete.
-
-## Teardown
+Promote from the UI, or with the CLI:
 
 ```bash
-./hack/teardown-multi-fleet.sh 2 2
+kargo login https://localhost:31081 --admin --insecure-skip-tls-verify
+kubectl --context kind-hub-1 get freight -n fleet-demo          # pick a freight name
+kargo promote --project fleet-demo --stage hub-1-fleet --freight <name>
+
+kubectl --context kind-hub-1 get stage -n fleet-demo -w         # health per fleet
+kubectl --context kind-hub-1 get crp -w                         # CRP on hub-1
+kubectl --context kind-hub-2 get crp -w                         # CRP on hub-2
 ```
 
-## Scaling
+What you see:
 
-```bash
-./hack/setup-multi-fleet.sh 3 3   # 3 hubs, 3 members each (12 Kind clusters, ~8GB RAM)
-./hack/generate-cross-fleet-pipeline.sh 3
-```
+1. The Warehouse detects an nginx image and creates Freight.
+2. Promoting to `hub-1-fleet` creates a CRP on hub-1 that picks one cluster (canary).
+3. Kargo waits until hub-1 reports healthy.
+4. Promoting to `hub-2-fleet` creates a CRP on hub-2 through a kubeconfig Secret (`fleet-hub-2`).
+5. All stages green: the rollout crossed two fleets with one pipeline.
 
-## Under the hood
+Scale: `./hack/setup-multi-fleet.sh 3 3` plus `generate-cross-fleet-pipeline.sh 3` gives three
+fleets (12 Kind clusters, ~8 GB RAM). Teardown with the same numbers:
+`./hack/teardown-multi-fleet.sh 2 2`.
 
-- **Kargo image**: `ghcr.io/ytimocin/kargo:cross-fleet` (built from [this fork](https://github.com/ytimocin/kargo/tree/cross-fleet), PR #1).
-- **KubeFleet images**: upstream `ghcr.io/kubefleet-dev/kubefleet/*:v0.2.2`.
-- Helm charts for both are vendored in `charts-kargo/` and `charts-kubefleet/`.
+## Layout
 
-See `docs/` for design notes:
-- `cross-fleet-feature.md` — step config, security, examples
-- `cross-fleet-orchestration.md` — vision & architecture
-- `HOWTO.md` — extended walkthrough
+| Path | What |
+|---|---|
+| `hack/` | setup, pipeline generator, teardown |
+| `charts-kubefleet/` | upstream hub-agent and member-agent charts, vendored |
+| `charts-kargo/` | Kargo chart from the fork, vendored |
+| `docs/POC.md` | why Kargo plus KubeFleet, single-fleet scope |
+| `docs/cross-fleet-orchestration.md` | the multi-fleet problem and architecture |
+| `docs/cross-fleet-feature.md` | step config, credential Secret format, examples |
+
+## Pinned versions
+
+| What | Version | Override |
+|---|---|---|
+| KubeFleet images | v0.3.2 | `KUBEFLEET_TAG` |
+| Kargo fork image | `cross-fleet` | `KARGO_IMAGE`, `KARGO_TAG` |
+| cert-manager | v1.21.3 | `CERT_MANAGER_VERSION` |
+| Kind node | v1.33.4 | `KIND_IMAGE` |
+
+The vendored KubeFleet charts match the v0.3.x release charts. Bumping the image tag past that
+line means re-vendoring `charts/` from the KubeFleet tag you target.

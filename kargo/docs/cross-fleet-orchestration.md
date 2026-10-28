@@ -95,7 +95,7 @@ metadata:
   name: fleet-hub-public-cloud
   namespace: fleet-demo
   labels:
-    kargo.akuity.io/cred-type: kubefleet-hub
+    kargo.akuity.io/cred-type: fleet
 type: Opaque
 data:
   kubeconfig: <base64-encoded kubeconfig>

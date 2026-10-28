@@ -1,0 +1,6 @@
+*.tgz
+*.kubeconfig
+.DS_Store
+.vscode/
+.idea/
+.claude/

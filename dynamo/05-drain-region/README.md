@@ -15,6 +15,6 @@ for i in 1 2 3 4 5; do ../03-one-endpoint/chat.sh; done              # always pr
 ```
 
 Undo: delete the override and run another UpdateRun. For a permanent move use a
-ClusterResourcePlacementEviction after tainting the member, as in the fleet-networking demos.
+ClusterResourcePlacementEviction after tainting the member.
 
 Separate from 04 in spirit, but shares its UpdateRun plumbing.
