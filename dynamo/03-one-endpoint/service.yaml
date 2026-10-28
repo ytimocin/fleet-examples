@@ -1,0 +1,19 @@
+# A public Service in front of the Frontend pods, exported to the fleet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-public
+  namespace: llm
+spec:
+  type: LoadBalancer
+  selector:
+    app: chat-frontend
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: networking.fleet.azure.com/v1beta1
+kind: ServiceExport
+metadata:
+  name: chat-public
+  namespace: llm

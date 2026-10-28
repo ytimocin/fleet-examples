@@ -1,0 +1,9 @@
+# GPU Operator operands must tolerate the AKS Spot taint or the driver never lands on the GPU nodes.
+daemonsets:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+    - key: kubernetes.azure.com/scalesetpriority
+      operator: Equal
+      value: spot
+      effect: NoSchedule

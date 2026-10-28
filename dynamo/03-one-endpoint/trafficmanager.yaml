@@ -1,0 +1,25 @@
+# One DNS name for the whole fleet. Health probe hits the Frontend's /v1/models.
+# DNS name becomes <namespace>-<name>.trafficmanager.net and must be globally unique: rename if taken.
+apiVersion: networking.fleet.azure.com/v1beta1
+kind: TrafficManagerProfile
+metadata:
+  name: dynamo-fleet-chat
+  namespace: llm
+spec:
+  resourceGroup: dynamo-fleet-demo     # must equal $RG
+  monitorConfig:
+    protocol: HTTP
+    port: 8000
+    path: /v1/models
+---
+apiVersion: networking.fleet.azure.com/v1beta1
+kind: TrafficManagerBackend
+metadata:
+  name: chat
+  namespace: llm
+spec:
+  profile:
+    name: dynamo-fleet-chat
+  backend:
+    name: chat-public                   # the ServiceExport
+  weight: 100

@@ -1,0 +1,49 @@
+# One Dynamo graph: an OpenAI-compatible Frontend plus one vLLM worker serving Qwen3-0.6B.
+# Clients always call the model as "chat"; 04 swaps the weights underneath that alias.
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: chat
+  namespace: llm
+spec:
+  components:
+    - name: Frontend
+      type: frontend
+      replicas: 1
+      podTemplate:
+        metadata:
+          labels:
+            app: chat-frontend        # selector for the public Service in 03
+        spec:
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.6.1
+    - name: worker
+      type: worker
+      replicas: 1
+      podTemplate:
+        spec:
+          tolerations:
+            - key: kubernetes.azure.com/scalesetpriority
+              operator: Equal
+              value: spot
+              effect: NoSchedule
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.6.1
+              workingDir: /workspace/examples/backends/vllm
+              command: ["python3", "-m", "dynamo.vllm"]
+              args:
+                - --model
+                - Qwen/Qwen3-0.6B
+                - --served-model-name
+                - chat
+                - --dtype
+                - half                # T4 has no bfloat16
+                - --max-model-len
+                - "8192"
+              resources:
+                limits:
+                  nvidia.com/gpu: "1"
+                requests:
+                  ephemeral-storage: 2Gi

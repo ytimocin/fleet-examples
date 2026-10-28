@@ -1,0 +1,26 @@
+# Traffic Manager endpoints need a DNS name per public IP. Give each cluster its own label.
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ResourceOverride
+metadata:
+  name: chat-public-dns-label
+  namespace: llm
+spec:
+  placement:
+    name: chat
+  resourceSelectors:
+    - group: ""
+      version: v1
+      kind: Service
+      name: chat-public
+  policy:
+    overrideRules:
+      - clusterSelector:
+          clusterSelectorTerms:
+            - labelSelector:
+                matchLabels:
+                  gpu: "true"
+        jsonPatchOverrides:
+          - op: add
+            path: /metadata/annotations
+            value:
+              service.beta.kubernetes.io/azure-dns-label-name: "dynamo-fleet-${MEMBER-CLUSTER-NAME}"

@@ -1,0 +1,8 @@
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ClusterStagedUpdateRun
+metadata:
+  name: chat-qwen3-1-7b
+spec:
+  placementName: chat
+  stagedRolloutStrategyName: canary-then-prod
+  state: Initialize

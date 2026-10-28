@@ -1,0 +1,25 @@
+# Same DGD everywhere, but the prod cluster runs two workers. Nothing changes on the hub object.
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ResourceOverride
+metadata:
+  name: chat-prod-replicas
+  namespace: llm
+spec:
+  placement:
+    name: chat
+  resourceSelectors:
+    - group: nvidia.com
+      version: v1beta1
+      kind: DynamoGraphDeployment
+      name: chat
+  policy:
+    overrideRules:
+      - clusterSelector:
+          clusterSelectorTerms:
+            - labelSelector:
+                matchLabels:
+                  env: prod
+        jsonPatchOverrides:
+          - op: replace
+            path: /spec/components/1/replicas   # the worker component
+            value: 2

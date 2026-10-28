@@ -1,0 +1,17 @@
+# Roll canary first, stop for a human, then prod.
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ClusterStagedUpdateStrategy
+metadata:
+  name: canary-then-prod
+spec:
+  stages:
+    - name: canary
+      labelSelector:
+        matchLabels:
+          env: canary
+      afterStageTasks:
+        - type: Approval
+    - name: prod
+      labelSelector:
+        matchLabels:
+          env: prod

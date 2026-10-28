@@ -1,0 +1,26 @@
+# Send 0% of traffic to the canary region. The pods keep running; only DNS answers change.
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ResourceOverride
+metadata:
+  name: chat-public-drain-canary
+  namespace: llm
+spec:
+  placement:
+    name: chat
+  resourceSelectors:
+    - group: networking.fleet.azure.com
+      version: v1beta1
+      kind: ServiceExport
+      name: chat-public
+  policy:
+    overrideRules:
+      - clusterSelector:
+          clusterSelectorTerms:
+            - labelSelector:
+                matchLabels:
+                  env: canary
+        jsonPatchOverrides:
+          - op: add
+            path: /metadata/annotations
+            value:
+              networking.fleet.azure.com/weight: "0"
