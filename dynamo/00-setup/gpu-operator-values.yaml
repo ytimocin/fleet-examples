@@ -1,9 +1,14 @@
-# GPU Operator operands must tolerate the AKS Spot taint or the driver never lands on the GPU nodes.
+# Everything the GPU Operator schedules onto GPU nodes must tolerate the AKS Spot taint, or the
+# driver never lands. The operands and node-feature-discovery carry separate toleration lists.
 daemonsets:
-  tolerations:
+  tolerations: &spot
     - key: nvidia.com/gpu
       operator: Exists
+      effect: NoSchedule
     - key: kubernetes.azure.com/scalesetpriority
       operator: Equal
       value: spot
       effect: NoSchedule
+node-feature-discovery:
+  worker:
+    tolerations: *spot

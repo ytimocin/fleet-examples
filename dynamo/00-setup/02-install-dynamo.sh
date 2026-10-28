@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Members: NVIDIA GPU Operator + Dynamo Platform (operator, etcd, NATS).
+# Members: NVIDIA GPU Operator + Dynamo Platform (the operator; 1.6 discovers workers through the Kubernetes API, no etcd/NATS).
 # Hub: only the DynamoGraphDeployment CRD, so the hub can store the object Fleet places.
 set -euo pipefail
 cd "$(dirname "$0")/.." && source env.sh
@@ -16,10 +16,11 @@ for ctx in "$MEMBER_A" "$MEMBER_B"; do
   kubectl --context "$ctx" get nodes -l agentpool=gpu -o custom-columns='NODE:.metadata.name,GPU:.status.allocatable.nvidia\.com/gpu'
 done
 
-# The CRD is ~3 MB, so client-side apply would overflow the last-applied annotation.
-kubectl --context "$HUB_CONTEXT" apply --server-side -f \
+# The CRD is ~3 MB, so client-side apply would overflow the last-applied annotation. --force-conflicts lets a rerun
+# take back the conversion field the patch below owns.
+kubectl --context "$HUB_CONTEXT" apply --server-side --force-conflicts -f \
   "https://raw.githubusercontent.com/ai-dynamo/dynamo/v${DYNAMO_VERSION}/deploy/operator/config/crd/bases/nvidia.com_dynamographdeployments.yaml"
 # The CRD declares a conversion webhook served by the operator, which does not run on the hub.
 # The hub only stores v1beta1 objects, so no conversion is ever needed.
 kubectl --context "$HUB_CONTEXT" patch crd dynamographdeployments.nvidia.com --type merge \
-  -p '{"spec":{"conversion":{"strategy":"None"}}}'
+  -p '{"spec":{"conversion":{"strategy":"None","webhook":null}}}'

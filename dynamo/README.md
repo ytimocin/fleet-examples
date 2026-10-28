@@ -37,8 +37,11 @@ shown on their own; 04 and 05 assume the earlier ones.
 ## Prerequisites
 
 - Azure subscription with Spot quota for `Standard_NC4as_T4_v3` in two regions. Defaults are
-  `southcentralus` and `eastus2`; change them in [`env.sh`](env.sh).
-- `az` with the `fleet` extension, `kubectl`, `helm`, `jq`, `dig`.
+  `southcentralus` and `westus2`; change them in [`env.sh`](env.sh). Spot capacity for the SKU
+  varies by the hour: `eastus2` refused it twice on 2026-10-27 while the other two worked. The
+  setup script stops when that happens. Change that cluster's region in `env.sh`, delete the
+  half-built cluster with `az aks delete`, and run its `create_member` line from the script again.
+- `az` with the `fleet` extension, `kubectl`, `helm`, `jq`, `curl`.
 - Permission to create role assignments (for Traffic Manager in 03 and 05).
 
 ```bash
