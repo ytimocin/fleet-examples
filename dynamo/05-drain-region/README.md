@@ -9,8 +9,8 @@ kubectl --context $HUB_CONTEXT apply -f ro-weight.yaml
 # 04 left the CRP on External, so push the override through a run:
 sed 's/chat-qwen3-1-7b/drain-canary/' ../04-staged-rollout/updaterun.yaml | kubectl --context $HUB_CONTEXT apply -f -
 kubectl --context $HUB_CONTEXT patch clusterstagedupdaterun drain-canary --type merge -p '{"spec":{"state":"Run"}}'
-kubectl --context $HUB_CONTEXT get clusterapprovalrequest          # approve drain-canary-after-canary as in 04
-kubectl --context $HUB_CONTEXT -n $NS get trafficmanagerbackend chat -o yaml   # canary endpoint weight 0
+RUN=drain-canary ../04-staged-rollout/approve.sh                    # same gate as in 04
+kubectl --context $HUB_CONTEXT -n $NS get trafficmanagerbackend chat -o yaml   # only the prod endpoint is left
 for i in 1 2 3 4 5; do ../03-one-endpoint/chat.sh; done              # always prod now
 ```
 

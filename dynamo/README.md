@@ -66,7 +66,11 @@ Tear down with `./cleanup.sh`.
 - **No GPU-aware placement yet.** Fleet's Azure property provider reports CPU and memory only,
   so "put it where GPUs are free" is done with labels today.
 - **04 switches the CRP to `External`.** From then on every change to the namespace goes
-  through an UpdateRun. That is the behaviour a platform team wants.
+  through an UpdateRun, and the run is what snapshots the change. `run.sh` verifies the run saw
+  it; see the 04 README for why.
+- **Spot evicts.** During the first live run both regions lost a T4 node within a few hours. The
+  Dynamo operator reschedules when a node comes back, but the pool count does not recover on its
+  own: `az aks nodepool scale` it back, or run the pools on regular priority for a long demo.
 
 ## References
 

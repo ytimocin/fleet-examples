@@ -1,4 +1,5 @@
-# Send 0% of traffic to the canary region. The pods keep running; only DNS answers change.
+# Send 0% of traffic to the canary region: Fleet drops that endpoint from the Traffic Manager profile.
+# The pods keep running; only DNS answers change.
 apiVersion: placement.kubernetes-fleet.io/v1beta1
 kind: ResourceOverride
 metadata:

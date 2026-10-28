@@ -22,6 +22,12 @@ spec:
       type: worker
       replicas: 1
       podTemplate:
+        metadata:
+          annotations:
+            # A worker swap replaces old pods with new ones. The default budget (surge 25%) needs a spare
+            # GPU per cluster; on a fully used T4 pool it deadlocks. Retire one old worker first instead.
+            nvidia.com/deployment-rolling-update-max-surge: "0"
+            nvidia.com/deployment-rolling-update-max-unavailable: "1"
         spec:
           tolerations:
             - key: kubernetes.azure.com/scalesetpriority
